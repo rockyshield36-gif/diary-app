@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Private Diary</title>
+
+<style>
+body {
+  font-family: system-ui, sans-serif;
+  margin: 16px;
+}
+input, select, textarea, button {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 8px;
+}
+.entry {
+  border-bottom: 1px solid #ccc;
+  padding: 6px 0;
+}
+</style>
+</head>
+
+<body>
+
+<h2>📓 Private Diary</h2>
+
+<button id="loginBtn">Googleでログイン</button>
+
+<div id="app" style="display:none">
+  <label>日付</label>
+  <input type="date" id="date">
+
+  <label>気分</label>
+  <select id="mood">
+    <option value="5">😀 最高</option>
+    <option value="4">🙂 良い</option>
+    <option value="3">😐 普通</option>
+    <option value="2">🙁 微妙</option>
+    <option value="1">😫 しんどい</option>
+  </select>
+
+  <label>一言日記</label>
+  <textarea id="text" rows="3"></textarea>
+
+  <button onclick="saveDiary()">保存</button>
+
+  <h3>履歴</h3>
+  <div id="list"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, setDoc, getDocs, collection } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "ここ",
+  authDomain: "ここ",
+  projectId: "ここ",
+  appId: "ここ"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+
+const loginBtn = document.getElementById("loginBtn");
+const appDiv = document.getElementById("app");
+const dateInput = document.getElementById("date");
+const moodInput = document.getElementById("mood");
+const textInput = document.getElementById("text");
+const list = document.getElementById("list");
+
+dateInput.valueAsDate = new Date();
+
+loginBtn.onclick = () => signInWithPopup(auth, provider);
+
+onAuthStateChanged(auth, user => {
+  if (user) {
+    loginBtn.style.display = "none";
+    appDiv.style.display = "block";
+    loadList(user.uid);
+    window.currentUser = user;
+  }
+});
+
+async function saveDiary() {
+  const u = window.currentUser;
+  await setDoc(
+    doc(db, "diaries", u.uid, "dates", dateInput.value),
+    { mood: moodInput.value, text: textInput.value }
+  );
+  loadList(u.uid);
+}
+
+async function loadList(uid) {
+  list.innerHTML = "";
+  const qs = await getDocs(collection(db, "diaries", uid, "dates"));
+  qs.forEach(d => {
+    const e = d.data();
+    const div = document.createElement("div");
+    div.className = "entry";
+    div.innerHTML = `<strong>${d.id}</strong> [${e.mood}]<br>${e.text}`;
+    div.onclick = () => {
+      dateInput.value = d.id;
+      moodInput.value = e.mood;
+      textInput.value = e.text;
+    };
+    list.appendChild(div);
+  });
+}
+
+window.saveDiary = saveDiary;
+</script>
+
+</body>
+</html>
